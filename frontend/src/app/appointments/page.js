@@ -8,6 +8,7 @@ export default function AppointmentsPage() {
 
   const [appointments, setAppointments] = useState([]);
   const [patients, setPatients] = useState([]);
+  const [selectedDate, setSelectedDate] = useState("");
 
   const [form, setForm] = useState({
     patient: "",
@@ -21,7 +22,7 @@ export default function AppointmentsPage() {
       ? localStorage.getItem("token")
       : null;
 
-  // 🔹 Load patients
+  // 🔹 Load patients for dropdown
   const loadPatients = async () => {
     const res = await fetch("http://localhost:5000/api/patients", {
       headers: {
@@ -60,7 +61,7 @@ export default function AppointmentsPage() {
       return;
     }
 
-    await fetch("http://localhost:5000/api/appointments", {
+    const res = await fetch("http://localhost:5000/api/appointments", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -69,7 +70,30 @@ export default function AppointmentsPage() {
       body: JSON.stringify(form)
     });
 
+    if (!res.ok) {
+      const err = await res.json();
+      alert(err.message || "Failed to create appointment");
+      return;
+    }
+
     setForm({ patient: "", date: "", time: "", chair: 1 });
+    loadAppointments();
+  };
+
+  // 🔹 Update appointment status
+  const updateStatus = async (id, status) => {
+    await fetch(
+      `http://localhost:5000/api/appointments/${id}/status`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + token
+        },
+        body: JSON.stringify({ status })
+      }
+    );
+
     loadAppointments();
   };
 
@@ -125,13 +149,35 @@ export default function AppointmentsPage() {
         <button onClick={createAppointment}>Add Appointment</button>
       </div>
 
+      {/* DATE FILTER */}
+      <div style={{ marginBottom: 20 }}>
+        <h3>Filter by Date</h3>
+        <input
+          type="date"
+          value={selectedDate}
+          onChange={e => setSelectedDate(e.target.value)}
+        />
+      </div>
+
       {/* APPOINTMENT LIST */}
       <ul>
-        {appointments.map(a => (
-          <li key={a._id}>
-            <b>{a.patient?.name}</b> — {a.date} {a.time} — Chair {a.chair}
-          </li>
-        ))}
+        {appointments
+          .filter(a => !selectedDate || a.date === selectedDate)
+          .map(a => (
+            <li key={a._id} style={{ marginBottom: 10 }}>
+              <b>{a.patient?.name}</b> — {a.date} {a.time} — Chair {a.chair}
+
+              <select
+                value={a.status}
+                onChange={e => updateStatus(a._id, e.target.value)}
+                style={{ marginLeft: 10 }}
+              >
+                <option value="scheduled">Scheduled</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </li>
+          ))}
       </ul>
     </div>
   );
